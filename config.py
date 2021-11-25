@@ -46,12 +46,15 @@ REQUEST_PRO = ""
 SECRET_KEY = ""
 
 # Redis配置
+RED_CONF = ""
+
+_local_cfg_path = path.join(CONTENT_PATH, getenv("EX_QUERY_CNF", "config.json"))
+if path.exists(_local_cfg_path):
+    load_json_config(globals(), _local_cfg_path)
+
+
 RED_CONF = {
     "host": "localhost",
     "port": 6379,
     "db": 1
-  }
-
-# _local_cfg_path = path.join(CONTENT_PATH, getenv("EX_QUERY_CNF", "config.json"))
-# if path.exists(_local_cfg_path):
-#     load_json_config(globals(), _local_cfg_path)
+}

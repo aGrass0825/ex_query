@@ -11,7 +11,7 @@
 """
 from typing import Any
 from functools import lru_cache
-from wtforms.validators import Optional, DataRequired, NumberRange
+from wtforms.validators import Optional, DataRequired, NumberRange, Regexp
 
 
 class Singleton(type):
@@ -36,6 +36,10 @@ class Validators(metaclass=Singleton):
     @lru_cache(maxsize=20)
     def num_range(self, max_value: Any = None, min_value: Any = None) -> NumberRange:
         return NumberRange(min=min_value, max=max_value, message="数据范围必须在  ({}~{})".format(min_value, max_value))
+
+    @lru_cache(maxsize=20)
+    def regex(self, regex, msg: str = None) -> Regexp:
+        return Regexp(regex, message=msg)
 
 
 validators = Validators()

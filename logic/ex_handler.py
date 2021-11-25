@@ -26,6 +26,13 @@ class ExHandler:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     @staticmethod
+    def get_current_stamp():
+        """获取当天零点的时间戳"""
+        today = datetime.now().strftime('%Y-%m-%d')
+        t_stamp = time.mktime(time.strptime(today, '%Y-%m-%d'))
+        return int(t_stamp)
+
+    @staticmethod
     def fmt_time(timestamp: int):
         """时间转换成标准时间"""
         return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
@@ -43,12 +50,17 @@ class ExHandler:
             return eval(_data['data'])
 
     def get_alarm(self, form: Form):
-        end = int(time.time())
-        start = end - form.data_time.data * 60 * 60
-        condition = dict(startDate=self.fmt_time(start), endDate=self.fmt_time(end))
+        start = self.fmt_time(self.get_current_stamp())
+        end = form.end.data.strftime('%Y-%m-%d %H:%M:%S')
+        condition = dict(startDate=start, endDate=end)
         params = {"serviceType": form.data_type.data, "strCondition": condition}
         params.update(current_app.config.get("ALARM_KEY"))
-        return self._alarm(params)
+        # return self._alarm(params)
+
+        return [{"name": "zhangsan"}, {"name": "wangwu"}, {"name": "lisi"}, {"name": "zhaoliu"}, {"name": "a"},
+                {"name": "b"}, {"name": "c"}, {"name": "d"}, {"name": "e"}, {"name": "f"}, {"name": "g"},
+                {"name": "h"}, {"name": "i"}, {"name": "j"}, {"name": "k"}, {"name": "l"}, {"name": "m"},
+                {"name": "n"}, {"name": "o"}, {"name": "p"}, {"name": "q"}, {"name": "r"}]
 
     @red_cache.cache_ex_data
     def handler(self, form: Form):

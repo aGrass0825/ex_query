@@ -10,7 +10,7 @@
 -------------------------------------------------
 """
 from collections import namedtuple
-from wtforms import IntegerField, StringField, Form
+from wtforms import IntegerField, StringField, Form, DateTimeField
 
 from ._validators import validators
 
@@ -20,10 +20,13 @@ AtypicalProcessState = {'unset': None, 'done': True, 'pending': False}
 
 class Pagination(Form):
     """分页表单"""
+    start = DateTimeField('start_time', validators=(validators.require,))
+    end = DateTimeField('end_time', validators=(validators.require,))
+    data_type = StringField("type", validators=(validators.require,))
+    # callee = StringField("tel", validators=(validators.optional, validators.regex('\d{5,11}')))
+    callee = StringField("tel", validators=(validators.optional, validators.regex('\d{1}')))
     pg = IntegerField('offset', validators=(validators.num_range(min_value=1), validators.require), default=1)
     limit = IntegerField('limit', validators=(validators.num_range(100, 10), validators.optional), default=10)
-    data_time = IntegerField('time', validators=(validators.require,))
-    data_type = StringField("type", validators=(validators.require,))
 
     def pagination(self) -> Pagin:
         return Pagin(offset=(self.pg.data - 1) * self.limit.data, limit=self.limit.data)

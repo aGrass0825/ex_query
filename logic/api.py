@@ -39,6 +39,11 @@ class GetAlarm(metaclass=abc.ABCMeta):
         return int(t_stamp)
 
     @staticmethod
+    def get_today():
+        """获取年月日"""
+        return datetime.now().strftime('%Y-%m-%d')
+
+    @staticmethod
     def fmt_time(timestamp: int):
         """时间转换成标准时间"""
         return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
@@ -55,21 +60,22 @@ class GetAlarm(metaclass=abc.ABCMeta):
                 self.logger.warning(f'{params.get("serviceType")}获取响应结果失败 :{_data["data"]}')
             return eval(_data['data'])
 
-    def save_redis(self, type_ser: str, resp_result: list):
+    def save_redis(self, today: str, type_ser: str, resp_result: list):
         try:
-            red_cache.save_result(type_ser=type_ser, resp_result=resp_result)
+            red_cache.save_result(today=today, type_ser=type_ser, resp_result=resp_result)
         except Exception as e:
             self.logger.error(f"{type_ser}缓存失败:{e}")
 
     def start(self):
         end = int(time.time())
         start = self.get_current_stamp()
+        today = self.get_today()
         type_ser = self.service_type
         condition = dict(startDate=self.fmt_time(start), endDate=self.fmt_time(end))
         params = {"serviceType": type_ser, "strCondition": condition}
         params.update(ALARM_KEY)
-        resp_result = self.get_alarm(params)
-        self.save_redis(type_ser=type_ser, resp_result=resp_result)
+        resp_result = self.get_alarm(params)  # 耗时业务
+        self.save_redis(today=today, type_ser=type_ser, resp_result=resp_result)
 
 
 class GetTelAlarm(GetAlarm):
