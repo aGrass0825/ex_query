@@ -40,10 +40,11 @@ class ExHandler:
     def _alarm(self, params) -> Union[Sequence[Dict], NoReturn]:
         try:
             res = requests.get("{}/ketech/query".format(current_app.config.get("REQUEST_PRO")),
-                               params=urlencode(params, encoding='utf8'), timeout=10)
+                               params=urlencode(params, encoding='utf8'), timeout=30)
             _data = res.json(encoding='utf-8')
         except Exception as e:
             self.logger.error(f'{params.get("serviceType")}获取省平台预警数据失败 :{e}')
+            return dict(stats=0, message="获取中间库数据失败，请联系技术人员!")
         else:
             if not _data['status']:
                 self.logger.warning(f'{params.get("serviceType")}获取响应结果失败 :{_data["data"]}')
@@ -55,12 +56,7 @@ class ExHandler:
         condition = dict(startDate=start, endDate=end)
         params = {"serviceType": form.data_type.data, "strCondition": condition}
         params.update(current_app.config.get("ALARM_KEY"))
-        # return self._alarm(params)
-
-        return [{"name": "zhangsan"}, {"name": "wangwu"}, {"name": "lisi"}, {"name": "zhaoliu"}, {"name": "a"},
-                {"name": "b"}, {"name": "c"}, {"name": "d"}, {"name": "e"}, {"name": "f"}, {"name": "g"},
-                {"name": "h"}, {"name": "i"}, {"name": "j"}, {"name": "k"}, {"name": "l"}, {"name": "m"},
-                {"name": "n"}, {"name": "o"}, {"name": "p"}, {"name": "q"}, {"name": "r"}]
+        return self._alarm(params)
 
     @red_cache.cache_ex_data
     def handler(self, form: Form):

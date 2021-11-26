@@ -11,6 +11,7 @@
 """
 import json
 import logging
+from wtforms import Form
 from functools import wraps
 from redis import Redis, ConnectionPool
 from datetime import datetime, timedelta
@@ -28,18 +29,40 @@ class ExRedCache(object):
 
     redis = property(lambda self: self._redis)
 
-    def save_result(self, today: str, type_ser: str, resp_result: list, count: int = 0):
+    def resp_handler(self, type_ser: str, result: dict):
+        """序列化保存缓存"""
+        if type_ser == "dhyj":
+            tel = result.get("shrhm")
+        elif type_ser == "wzyj":
+            tel = result.get("sjhm")
+        elif type_ser == "zfbgwyj":
+            tel = result.get("telephone")
+        else:
+            sfzh = result.get("sfzh")
+            ret = {
+                "citycode": result.get("citycode"), "cityname": result.get("cityname"), "tel": sfzh,
+                "fkzt": result.get("fkzt"), "fksj": result.get("fksj", ""), "yjid": result.get("yjid")
+            }
+            return sfzh, ret
+        ret = {
+            "citycode": result.get("citycode"), "cityname": result.get("cityname").strip(),
+            "tel": tel, "fkzt": result.get("fkzt"), "fksj": result.get("fksj", ""),
+            "yjsj": result.get("yjsj", ""), "yjid": result.get("yjid")
+        }
+        return tel, ret
+
+    def save_result(self, today: str, type_ser: str, save_time: int, resp_result: list) -> None:
         """保存数据"""
         if resp_result:
             key = "{}::{}".format(today, type_ser)
             pipe = self.redis.pipeline()
             for res in resp_result:
-                pipe.zadd(name=key, mapping={json.dumps(res): count})
-                count += 1
+                score, res = self.resp_handler(type_ser=type_ser, result=res)
+                pipe.zadd(name=key, mapping={json.dumps(res): score})
             pipe.execute()
-            self.redis.expire(key, 7 * 24 * 60 * 60)
+            self.redis.expire(key, save_time)
 
-    def get_result(self, key, form):
+    def get_result(self, key: str, form: Form) -> dict:
         """分页获取数据"""
         page = form.pagination()
         start = page.offset
@@ -49,7 +72,7 @@ class ExRedCache(object):
         result = list(map(lambda x: json.loads(x), result_list))
         return {"body": result, "count": sum_num}
 
-    def get_between_day(self, begin_date, end_date):
+    def get_between_day(self, begin_date: str, end_date: str) -> list:
         """获取范围内天数"""
         date_list = []
         begin_date = datetime.strptime(begin_date, '%Y-%m-%d')
@@ -60,9 +83,8 @@ class ExRedCache(object):
             begin_date += timedelta(days=1)
         return date_list
 
-    def merge(self, day_list, form):
+    def merge(self, short_time: int, day_list: list, form: Form) -> dict:
         """汇聚"""
-        count = 0
         end_time = form.end.data.strftime('%Y-%m-%d')
         key_new = "{}::{}::{}".format(end_time, len(day_list), form.data_type.data)
         if self.redis.exists(key_new):
@@ -72,13 +94,12 @@ class ExRedCache(object):
             key = "{}::{}".format(item, form.data_type.data)
             result_list = self.redis.zrange(name=key, start=0, end=-1)
             for res in result_list:
-                pipe.zadd(name=key_new, mapping={res: count})
-                count += 1
+                pipe.zadd(name=key_new, mapping={res: json.loads(res).get("tel")})
             pipe.execute()
-        self.redis.expire(key_new, 30 * 60)
+        self.redis.expire(key_new, short_time)
         return self.get_result(key=key_new, form=form)
 
-    def kernel_show(self, form, func, obj):
+    def kernel_show(self, form: Form, func, obj) -> dict:
         """展示逻辑"""
         try:
             start_time = form.start.data.strftime('%Y-%m-%d')
@@ -90,9 +111,11 @@ class ExRedCache(object):
                 key = "{}::{}".format(end_time, form.data_type.data)
                 if self.redis.exists(key):
                     return self.get_result(key=key, form=form)
-                # TODO 调整刷新频率
                 ret = func(obj, form)
-                self.save_result(today=end_time, type_ser=form.data_type.data, resp_result=ret)
+                if isinstance(ret, dict):
+                    return ret
+                self.save_result(today=end_time, type_ser=form.data_type.data,
+                                 save_time=2 * 60, resp_result=ret)
                 return self.get_result(key=key, form=form)
 
             elif start_time != end_time and end_time != now_time:
@@ -100,7 +123,7 @@ class ExRedCache(object):
                 day_list = self.get_between_day(begin_date=start_time, end_date=end_time)
                 if len(day_list) > 6:
                     return dict(status=0, message="超出规定日期范围，请重新选择!")
-                return self.merge(day_list=day_list, form=form)
+                return self.merge(short_time=30 * 60, day_list=day_list, form=form)
 
             elif start_time != end_time and end_time == now_time:
                 """查从当天至前几天"""
@@ -109,11 +132,13 @@ class ExRedCache(object):
                     return dict(status=0, message="超出规定日期范围，请重新选择!")
                 key = "{}::{}".format(end_time, form.data_type.data)
                 if self.redis.exists(key):
-                    return self.merge(day_list=day_list, form=form)
-                # TODO 调整刷新频率
+                    return self.merge(short_time=4 * 60, day_list=day_list, form=form)
                 ret = func(obj, form)
-                self.save_result(today=end_time, type_ser=form.data_type.data, resp_result=ret)
-                return self.merge(day_list=day_list, form=form)
+                if isinstance(ret, dict):
+                    return ret
+                self.save_result(today=end_time, type_ser=form.data_type.data,
+                                 save_time=2 * 60, resp_result=ret)
+                return self.merge(short_time=4 * 60, day_list=day_list, form=form)
 
             elif start_time == end_time and end_time != now_time:
                 """查前某一天"""
@@ -122,9 +147,9 @@ class ExRedCache(object):
 
         except Exception as e:
             self.logger.error('Error:{}'.format(e))
-            return dict(stats=507, message=e)
+            return dict(stats=507, message="数据库操作失败，请联系技术人员!")
 
-    def kernel_search(self, form, func, obj, tel):
+    def kernel_search(self, form: Form, func, obj, tel: str) -> dict:
         """搜索逻辑"""
         init_list = []
         start_time = form.start.data.strftime('%Y-%m-%d')
@@ -140,7 +165,10 @@ class ExRedCache(object):
                 init_list.extend(score_list)
             elif item == now_time:
                 ret = func(obj, form)
-                self.save_result(today=item, type_ser=form.data_type.data, resp_result=ret)
+                if isinstance(ret, dict):
+                    return ret
+                self.save_result(today=item, type_ser=form.data_type.data,
+                                 save_time=2 * 60, resp_result=ret)
                 score_list = self.redis.zrangebyscore(name=key, min=tel, max=tel)
                 init_list.extend(score_list)
         if init_list:

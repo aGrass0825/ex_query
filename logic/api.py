@@ -51,7 +51,7 @@ class GetAlarm(metaclass=abc.ABCMeta):
     def get_alarm(self, params) -> Union[Sequence[Dict], NoReturn]:
         try:
             res = requests.get("{}/ketech/query".format(REQUEST_PRO),
-                               params=urlencode(params, encoding='utf8'), timeout=10)
+                               params=urlencode(params, encoding='utf8'), timeout=60)
             _data = res.json(encoding='utf-8')
         except Exception as e:
             self.logger.error(f'{params.get("serviceType")}获取省平台预警数据失败 :{e}')
@@ -62,7 +62,9 @@ class GetAlarm(metaclass=abc.ABCMeta):
 
     def save_redis(self, today: str, type_ser: str, resp_result: list):
         try:
-            red_cache.save_result(today=today, type_ser=type_ser, resp_result=resp_result)
+            save_time = 7 * 24 * 60 * 60
+            red_cache.save_result(today=today, type_ser=type_ser,
+                                  save_time=save_time, resp_result=resp_result)
         except Exception as e:
             self.logger.error(f"{type_ser}缓存失败:{e}")
 

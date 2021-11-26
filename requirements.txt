@@ -1,0 +1,31 @@
+aniso8601==9.0.1
+APScheduler==3.8.1
+backports.zoneinfo==0.2.1
+certifi==2021.10.8
+charset-normalizer==2.0.7
+click==8.0.3
+colorama==0.4.4
+Flask @ file:///home/ktietz/src/ci/flask_1611932660458/work
+Flask-RESTful==0.3.9
+Flask-WTF==0.14.3
+gunicorn==19.9.0
+idna==3.3
+importlib-metadata==4.8.2
+itsdangerous @ file:///tmp/build/80754af9/itsdangerous_1621432558163/work
+Jinja2 @ file:///tmp/build/80754af9/jinja2_1635780242639/work
+MarkupSafe @ file:///C:/ci/markupsafe_1621528383308/work
+pytz==2021.3
+pytz-deprecation-shim==0.1.0.post0
+redis==3.5.3
+requests==2.26.0
+six==1.16.0
+typing_extensions==4.0.0
+tzdata==2021.5
+tzlocal==4.1
+ugly-code==0.0.7
+urllib3==1.26.7
+Werkzeug @ file:///tmp/build/80754af9/werkzeug_1635505089296/work
+wincertstore==0.2
+WTForms==2.3.3
+WTForms-JSON==0.3.3
+zipp==3.6.0
