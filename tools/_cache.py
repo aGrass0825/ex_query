@@ -83,10 +83,12 @@ class ExRedCache(object):
             begin_date += timedelta(days=1)
         return date_list
 
-    def merge(self, short_time: int, day_list: list, form: Form) -> dict:
+    def merge(self, day_list: list, form: Form) -> dict:
         """汇聚"""
         end_time = form.end.data.strftime('%Y-%m-%d')
         key_new = "{}::{}::{}".format(end_time, len(day_list), form.data_type.data)
+        if form.flush.data:
+            self.redis.delete(key_new)
         if self.redis.exists(key_new):
             return self.get_result(key=key_new, form=form)
         pipe = self.redis.pipeline()
@@ -96,7 +98,7 @@ class ExRedCache(object):
             for res in result_list:
                 pipe.zadd(name=key_new, mapping={res: json.loads(res).get("tel")})
             pipe.execute()
-        self.redis.expire(key_new, short_time)
+        self.redis.expire(key_new, 30 * 60)
         return self.get_result(key=key_new, form=form)
 
     def kernel_show(self, form: Form, func, obj) -> dict:
@@ -109,13 +111,15 @@ class ExRedCache(object):
             if end_time == now_time and start_time == now_time:
                 """查当天的"""
                 key = "{}::{}".format(end_time, form.data_type.data)
+                if form.flush.data:
+                    self.redis.delete(key)
                 if self.redis.exists(key):
                     return self.get_result(key=key, form=form)
                 ret = func(obj, form)
                 if isinstance(ret, dict):
                     return ret
                 self.save_result(today=end_time, type_ser=form.data_type.data,
-                                 save_time=2 * 60, resp_result=ret)
+                                 save_time=30 * 60, resp_result=ret)
                 return self.get_result(key=key, form=form)
 
             elif start_time != end_time and end_time != now_time:
@@ -123,7 +127,7 @@ class ExRedCache(object):
                 day_list = self.get_between_day(begin_date=start_time, end_date=end_time)
                 if len(day_list) > 6:
                     return dict(status=0, message="超出规定日期范围，请重新选择!")
-                return self.merge(short_time=30 * 60, day_list=day_list, form=form)
+                return self.merge(day_list=day_list, form=form)
 
             elif start_time != end_time and end_time == now_time:
                 """查从当天至前几天"""
@@ -131,14 +135,16 @@ class ExRedCache(object):
                 if len(day_list) > 7:
                     return dict(status=0, message="超出规定日期范围，请重新选择!")
                 key = "{}::{}".format(end_time, form.data_type.data)
+                if form.flush.data:
+                    self.redis.delete(key)
                 if self.redis.exists(key):
-                    return self.merge(short_time=4 * 60, day_list=day_list, form=form)
+                    return self.merge(day_list=day_list, form=form)
                 ret = func(obj, form)
                 if isinstance(ret, dict):
                     return ret
                 self.save_result(today=end_time, type_ser=form.data_type.data,
-                                 save_time=2 * 60, resp_result=ret)
-                return self.merge(short_time=4 * 60, day_list=day_list, form=form)
+                                 save_time=30 * 60, resp_result=ret)
+                return self.merge(day_list=day_list, form=form)
 
             elif start_time == end_time and end_time != now_time:
                 """查前某一天"""
@@ -147,7 +153,7 @@ class ExRedCache(object):
 
         except Exception as e:
             self.logger.error('Error:{}'.format(e))
-            return dict(stats=507, message="数据库操作失败，请联系技术人员!")
+            return dict(stats=0, message="异常:{}".format(e))
 
     def kernel_search(self, form: Form, func, obj, tel: str) -> dict:
         """搜索逻辑"""
@@ -158,6 +164,8 @@ class ExRedCache(object):
         day_list = self.get_between_day(begin_date=start_time, end_date=end_time)
         if len(day_list) > 7:
             return dict(status=0, message="超出规定日期范围，请重新选择!")
+        if form.flush.data:
+            self.redis.delete("{}::{}".format(now_time, form.data_type.data))
         for item in day_list:
             key = "{}::{}".format(item, form.data_type.data)
             if self.redis.exists(key):
@@ -168,14 +176,14 @@ class ExRedCache(object):
                 if isinstance(ret, dict):
                     return ret
                 self.save_result(today=item, type_ser=form.data_type.data,
-                                 save_time=2 * 60, resp_result=ret)
+                                 save_time=30 * 60, resp_result=ret)
                 score_list = self.redis.zrangebyscore(name=key, min=tel, max=tel)
                 init_list.extend(score_list)
         if init_list:
             result = list(map(lambda x: json.loads(x), init_list))
             return {"body": result, "count": len(result)}
         else:
-            return dict(status=0, message="未同步到中间库，请联系技术人员!")
+            return dict(status=0, message="从中间库未拉取到，请联系技术人员!")
 
     def cache_ex_data(self, func):
         """展示与搜索功能"""

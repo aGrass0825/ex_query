@@ -27,7 +27,7 @@ docker run \
 -w /app \
 -p 1125:8090 \
 ex_query:v1.1.0 \
-gunicorn -b 0.0.0.0:8090 -w 10 \
+gunicorn -b 0.0.0.0:8090 -w 3 \
 --error-logfile /app/content/logs/gunicorn_error.log \
 entry:app
 ```

@@ -51,7 +51,9 @@ class ExHandler:
             return eval(_data['data'])
 
     def get_alarm(self, form: Form):
-        start = self.fmt_time(self.get_current_stamp())
+        start = form.start.data.strftime('%Y-%m-%d %H:%M:%S')
+        if form.start.data.strftime('%Y-%m-%d') != datetime.now().strftime('%Y-%m-%d'):
+            start = self.fmt_time(self.get_current_stamp())
         end = form.end.data.strftime('%Y-%m-%d %H:%M:%S')
         condition = dict(startDate=start, endDate=end)
         params = {"serviceType": form.data_type.data, "strCondition": condition}
